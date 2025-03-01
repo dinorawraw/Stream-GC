@@ -1,6 +1,7 @@
 export interface LowerThird {
   tweetUrl: string;
   profilePicture: string;
+  username: string;
   content: string;
   textColor: string;
   borderColor: string;

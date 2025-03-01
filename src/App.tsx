@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link2, Edit2, Eye, Send, Palette, Image, Type, Minus, Plus, Play, ExternalLink } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Link2, Eye, Send, Palette, Image, Type, Minus, Plus, Play, ExternalLink, Pencil, Square, AtSign, Upload } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 import ColorPicker from './components/ColorPicker';
 import AnimationSelector from './components/AnimationSelector';
@@ -7,12 +7,15 @@ import FontSelector from './components/FontSelector';
 import TextStyleControls from './components/TextStyleControls';
 import Preview from './components/Preview';
 import LivePreview from './components/LivePreview';
+import ImageEditor from './components/ImageEditor';
 import type { LowerThird } from './types';
 
 function App() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [lowerThird, setLowerThird] = useState<LowerThird>({
     tweetUrl: '',
     profilePicture: 'https://instagram.fcgh10-2.fna.fbcdn.net/v/t51.29350-15/328424707_1949459538764487_4241318912349984248_n.webp?stp=dst-jpg_e35_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6ImltYWdlX3VybGdlbi45MzZ4MTE3MC5zZHIuZjI5MzUwLmRlZmF1bHRfaW1hZ2UifQ&_nc_ht=instagram.fcgh10-2.fna.fbcdn.net&_nc_cat=103&_nc_ohc=y5vsl5rxy8QQ7kNvgGqi_fd&_nc_gid=9105dce1f52f4e8cbc94757a5fb5b237&edm=AP4sbd4BAAAA&ccb=7-5&ig_cache_key=MzA4MTE5ODEwMDAxMDE2NDA2OQ%3D%3D.3-ccb7-5&oh=00_AYC75Oc_OhBOkFPaT6vRnFkDGwJ74MY_bTJeH_S9aGPCgg&oe=679C4970&_nc_sid=7a9f4b',
+    username: '',
     content: 'Sample tweet content will appear here...',
     textColor: '#ffffff',
     borderColor: '#1d9bf0',
@@ -37,6 +40,7 @@ function App() {
   const [showProfilePictureInput, setShowProfilePictureInput] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showImageEditor, setShowImageEditor] = useState<string | null>(null);
 
   const handleCapture = async () => {
     if (!lowerThird.tweetUrl) {
@@ -63,6 +67,30 @@ function App() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleImageUpdate = (newHtml: string) => {
+    setLowerThird(prev => ({
+      ...prev,
+      content: newHtml || 'Sample tweet content will appear here...'
+    }));
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageUrl = e.target?.result as string;
+        setShowImageEditor(imageUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const extractImageUrl = (content: string): string | null => {
+    const match = content.match(/src="([^"]+)"/);
+    return match ? match[1] : null;
   };
 
   const getLiveUrl = () => {
@@ -121,7 +149,26 @@ function App() {
               </div>
             </div>
 
-            {/* Profile Picture Input */}
+            {/* Username Input */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Username</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <AtSign size={18} />
+                  </span>
+                  <input
+                    type="text"
+                    value={lowerThird.username}
+                    onChange={(e) => setLowerThird({ ...lowerThird, username: e.target.value })}
+                    className="w-full bg-gray-700 rounded px-4 py-2 pl-10 focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="username"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Picture */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium">Profile Picture</label>
@@ -161,11 +208,32 @@ function App() {
                   onChange={(e) => setLowerThird({ ...lowerThird, content: e.target.value })}
                   className="flex-1 bg-gray-700 rounded px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none h-24"
                 />
-                <button
-                  className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded flex items-center gap-2"
-                >
-                  <Edit2 size={18} /> Edit
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      const imageUrl = extractImageUrl(lowerThird.content);
+                      if (imageUrl) {
+                        setShowImageEditor(imageUrl);
+                      }
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded flex items-center gap-2"
+                  >
+                    <Pencil size={18} /> Edit
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded flex items-center gap-2"
+                  >
+                    <Upload size={18} /> Upload
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </div>
               </div>
             </div>
 
@@ -244,14 +312,8 @@ function App() {
                 <Palette size={18} /> Border Color
               </button>
               <button
-                onClick={() => setShowColorPicker('box')}
-                className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded flex items-center gap-2 justify-center"
-              >
-                <Palette size={18} /> Box Color
-              </button>
-              <button
                 onClick={() => setShowAnimations(!showAnimations)}
-                className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded flex items-center gap-2 justify-center"
+                className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded flex items-center gap-2 justify-center col-span-2"
               >
                 <Eye size={18} /> Animations
               </button>
@@ -326,6 +388,14 @@ function App() {
           </div>
         </div>
       </div>
+
+      {showImageEditor && (
+        <ImageEditor
+          imageUrl={showImageEditor}
+          onUpdate={handleImageUpdate}
+          onClose={() => setShowImageEditor(null)}
+        />
+      )}
     </div>
   );
 }
